@@ -1,2 +1,0 @@
-C:\Steam\steamapps\common\Grand Theft Auto V
-Кидаем все файлы в корневую папку GTAV с заменой.
