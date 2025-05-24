@@ -1,13 +1,13 @@
 {
-  "Version": "1.0.0",
-  "ReleaseDate": "2023-11-25",
+  "Version": "1.0.1",
+  "ReleaseDate": "2025-05-25",
   "Mandatory": false,
-  "DownloadUrl": "https://github.com/GofMan5/OPP/releases/download/v1.0.0/OPP_Setup_1.0.0.exe",
+  "DownloadUrl": "https://github.com/GofMan5/OPP/releases/download/v1.0.1/OPP_Setup_1.0.1.exe",
   "ChangelogUrl": "https://raw.githubusercontent.com/GofMan5/OPP/main/changelog.txt",
   "MinOSVersion": "10.0",
   "FileSize": 2621440,
   "UpdateMessages": {
-    "Ru": "Доступно обновление. Рекомендуется установить для улучшения стабильности.",
-    "En": "Update is available. It's recommended to install for improved stability."
+    "Ru": "Доступно обновление до версии 1.0.1.",
+    "En": "Update to version 1.0.1 is available."
   }
 } 
