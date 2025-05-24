@@ -1,0 +1,100 @@
+<Window x:Class="App.Views.ConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:App.Views"
+        mc:Ignorable="d"
+        Title="Подтверждение" 
+        Height="220" Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+        
+    <Border CornerRadius="8" Padding="0">
+        <Border.Background>
+            <DynamicResource ResourceKey="WindowBackgroundBrush" />
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5" Color="#121212"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Строка заголовка -->
+            <Border Grid.Row="0" Background="{DynamicResource WindowTitleBarBrush}" MouseDown="TitleBar_MouseDown" CornerRadius="8,8,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Grid.Column="0" 
+                              Text="Подтверждение" 
+                              Foreground="{DynamicResource ForegroundBrush}" 
+                              FontSize="13" 
+                              FontWeight="SemiBold" 
+                              Margin="15,0,0,0"
+                              VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+            
+            <!-- Содержимое диалога -->
+            <Grid Grid.Row="1" Margin="20">
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <Path Data="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+                              Fill="{DynamicResource AccentBrush}" 
+                              Width="32" 
+                              Height="32" 
+                              Stretch="Uniform"/>
+                        <TextBlock Text="Несохраненные изменения" 
+                                  Foreground="{DynamicResource ForegroundBrush}" 
+                                  FontSize="18" 
+                                  FontWeight="SemiBold" 
+                                  VerticalAlignment="Center"
+                                  Margin="12,0,0,0"/>
+                    </StackPanel>
+                    
+                    <TextBlock Text="Сохранить изменения перед закрытием?" 
+                              Foreground="{DynamicResource ForegroundBrush}" 
+                              FontSize="14"
+                              x:Name="MessageText" 
+                              TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+            
+            <!-- Кнопки -->
+            <Border Grid.Row="2" Background="{DynamicResource WindowTitleBarBrush}" CornerRadius="0,0,8,8">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,0">
+                    <Button x:Name="SaveButton" 
+                           Content="Да" 
+                           Style="{DynamicResource SaveButtonStyle}" 
+                           Padding="25,10" 
+                           Margin="0,0,10,0"
+                           Click="SaveButton_Click"/>
+                    
+                    <Button x:Name="DontSaveButton" 
+                           Content="Нет" 
+                           Style="{DynamicResource CancelButtonStyle}" 
+                           Padding="25,10" 
+                           Margin="0,0,10,0"
+                           Click="DontSaveButton_Click"/>
+                    
+                    <Button x:Name="CancelButton" 
+                           Content="Отмена" 
+                           Style="{DynamicResource CancelButtonStyle}" 
+                           Padding="25,10"
+                           Click="CancelButton_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window> 

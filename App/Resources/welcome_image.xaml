@@ -1,0 +1,29 @@
+<ResourceDictionary 
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <DrawingImage x:Key="WelcomeImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <DrawingGroup.Children>
+                    <GeometryDrawing Brush="#3498db">
+                        <GeometryDrawing.Geometry>
+                            <PathGeometry Figures="M 90,0 L 160,50 L 160,150 L 90,200 L 20,150 L 20,50 Z" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#2980b9">
+                        <GeometryDrawing.Geometry>
+                            <PathGeometry Figures="M 90,0 L 160,50 L 90,100 L 20,50 Z" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="White">
+                        <GeometryDrawing.Geometry>
+                            <PathGeometry Figures="M 60,70 L 120,70 L 120,85 L 60,85 Z M 60,100 L 120,100 L 120,115 L 60,115 Z M 60,130 L 90,130 L 90,145 L 60,145 Z" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup.Children>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    
+</ResourceDictionary> 
