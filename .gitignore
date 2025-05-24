@@ -3,7 +3,6 @@
 
 # Не игнорировать указанные файлы
 !update_info.json
-!changelog.txt
 !README.md
 
 # Не игнорировать .gitignore
@@ -18,5 +17,4 @@
 
 # Но не игнорировать нужные файлы даже в поддиректориях
 !*/update_info.json
-!*/changelog.txt
 !*/README.md 
