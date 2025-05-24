@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using App.Helpers;
 
 namespace App.Views
 {
@@ -729,7 +731,578 @@ namespace App.Views
         /// </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            this.Close();
+            Close();
+        }
+        
+        /// <summary>
+        /// Обработчик нажатия на кнопку быстрой очистки
+        /// </summary>
+        private void QuickCleanupButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Получаем букву диска из тега кнопки
+                if (sender is Button button && button.Tag is string driveLetter)
+                {
+                    // Запрос подтверждения
+                    MessageBoxResult result = MessageBox.Show(
+                        $"Выполнить быструю очистку диска {driveLetter}?\n\nБудут очищены:\n- Временные файлы\n- Файл гибернации\n- Другие некритические данные",
+                        "Подтверждение", 
+                        MessageBoxButton.YesNo, 
+                        MessageBoxImage.Question);
+                        
+                    if (result != MessageBoxResult.Yes)
+                        return;
+                        
+                    // Преобразуем букву диска к формату C:
+                    string driveLetterOnly = driveLetter.Replace("\\", "").TrimEnd(':') + ":";
+                    
+                    try
+                    {
+                        // Показываем индикатор выполнения
+                        button.IsEnabled = false;
+                        
+                        // Запускаем процесс очистки временных файлов
+                        Task.Run(() => 
+                        {
+                            try
+                            {
+                                // Очистка %TEMP% директории
+                                CleanTempDirectory(driveLetterOnly);
+                                
+                                // Очистка файла гибернации, если диск системный
+                                if (driveLetterOnly.ToUpper() == Path.GetPathRoot(Environment.SystemDirectory))
+                                {
+                                    CleanHibernationFile();
+                                }
+                                
+                                // Очистка других некритичных данных
+                                CleanOtherTempData(driveLetterOnly);
+                                
+                                // Обновляем информацию о дисках после очистки
+                                Application.Current.Dispatcher.Invoke(() => 
+                                {
+                                    LoadDisksInfo();
+                                    MessageBox.Show(
+                                        $"Быстрая очистка диска {driveLetter} выполнена успешно.",
+                                        "Очистка завершена", 
+                                        MessageBoxButton.OK, 
+                                        MessageBoxImage.Information);
+                                    button.IsEnabled = true;
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    MessageBox.Show(
+                                        $"Ошибка при быстрой очистке диска {driveLetter}: {ex.Message}",
+                                        "Ошибка", 
+                                        MessageBoxButton.OK, 
+                                        MessageBoxImage.Error);
+                                    button.IsEnabled = true;
+                                });
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            $"Ошибка при запуске очистки: {ex.Message}",
+                            "Ошибка", 
+                            MessageBoxButton.OK, 
+                            MessageBoxImage.Error);
+                        button.IsEnabled = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Ошибка в обработчике нажатия кнопки быстрой очистки: {ex.Message}",
+                    "Ошибка", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// Обработчик нажатия на кнопку мануальной очистки (WinDirStat)
+        /// </summary>
+        private void ManualCleanupButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Получаем букву диска из тега кнопки
+                if (sender is Button button && button.Tag is string driveLetter)
+                {
+                    button.IsEnabled = false;
+                    
+                    // Преобразуем букву диска к формату C:
+                    string driveLetterOnly = driveLetter.Replace("\\", "").TrimEnd(':') + ":";
+                    
+                    try
+                    {
+                        Debug.WriteLine("Запуск мануальной очистки диска: " + driveLetterOnly);
+                        
+                        // Получаем путь к встроенной или установленной версии WinDirStat
+                        string windirstatPath = GetWinDirStatPath();
+                        Debug.WriteLine("Путь к WinDirStat: " + (windirstatPath ?? "не найден"));
+                        
+                        if (!string.IsNullOrEmpty(windirstatPath))
+                        {
+                            // Запускаем WinDirStat для выбранного диска
+                            ProcessStartInfo startInfo = new ProcessStartInfo
+                            {
+                                FileName = windirstatPath,
+                                Arguments = $"/dir=\"{driveLetterOnly}\\\"",
+                                UseShellExecute = true
+                            };
+                            
+                            Debug.WriteLine($"Запускаем процесс: {windirstatPath} с аргументами: /dir=\"{driveLetterOnly}\\\"");
+                            
+                            try
+                            {
+                                Process process = Process.Start(startInfo);
+                                if (process != null)
+                                {
+                                    Debug.WriteLine("Процесс WinDirStat успешно запущен");
+                                }
+                                else
+                                {
+                                    Debug.WriteLine("Ошибка: Process.Start вернул null");
+                                    MessageBox.Show(
+                                        "Не удалось запустить WinDirStat. Пожалуйста, попробуйте запустить программу от имени администратора.",
+                                        "Ошибка запуска", 
+                                        MessageBoxButton.OK, 
+                                        MessageBoxImage.Warning);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Ошибка при запуске процесса WinDirStat: {ex.Message}");
+                                MessageBox.Show(
+                                    $"Ошибка при запуске WinDirStat: {ex.Message}\nПопробуйте запустить программу от имени администратора.",
+                                    "Ошибка запуска", 
+                                    MessageBoxButton.OK, 
+                                    MessageBoxImage.Warning);
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show(
+                                "Не удалось запустить WinDirStat. Внутренняя ошибка извлечения ресурса.",
+                                "Ошибка", 
+                                MessageBoxButton.OK, 
+                                MessageBoxImage.Error);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Ошибка при запуске мануальной очистки: {ex.Message}, StackTrace: {ex.StackTrace}");
+                        MessageBox.Show(
+                            $"Ошибка при запуске мануальной очистки: {ex.Message}",
+                            "Ошибка", 
+                            MessageBoxButton.OK, 
+                            MessageBoxImage.Error);
+                    }
+                    
+                    button.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Критическая ошибка в обработчике нажатия кнопки мануальной очистки: {ex.Message}, StackTrace: {ex.StackTrace}");
+                MessageBox.Show(
+                    $"Ошибка в обработчике нажатия кнопки мануальной очистки: {ex.Message}",
+                    "Ошибка", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// Очищает временные файлы в директории %TEMP%
+        /// </summary>
+        private void CleanTempDirectory(string driveLetter)
+        {
+            try
+            {
+                // Получаем пути к временным директориям
+                string tempPath = Path.GetTempPath();
+                string localAppDataTemp = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+                    "Temp");
+                
+                // Проверяем, что временная директория находится на выбранном диске
+                if (tempPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
+                {
+                    CleanDirectory(tempPath);
+                }
+                
+                if (localAppDataTemp.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
+                {
+                    CleanDirectory(localAppDataTemp);
+                }
+                
+                // Проверяем системную временную директорию Windows\Temp
+                string winTempPath = Path.Combine(
+                    Path.GetPathRoot(Environment.SystemDirectory), 
+                    "Windows", 
+                    "Temp");
+                    
+                if (winTempPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
+                {
+                    CleanDirectory(winTempPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке временной директории: {ex.Message}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Очищает файл гибернации (только для системного диска)
+        /// </summary>
+        private void CleanHibernationFile()
+        {
+            try
+            {
+                // Проверяем, выключена ли гибернация
+                ProcessStartInfo powercfgInfo = new ProcessStartInfo
+                {
+                    FileName = "powercfg.exe",
+                    Arguments = "/h /type full",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+                
+                // Проверяем текущее состояние
+                Process powercfgProcess = Process.Start(powercfgInfo);
+                string output = powercfgProcess.StandardOutput.ReadToEnd();
+                powercfgProcess.WaitForExit();
+                
+                // Если гибернация не выключена, выключаем и удаляем файл
+                if (!output.Contains("Гибернация выключена") && !output.Contains("Hibernation is disabled"))
+                {
+                    // Отключаем гибернацию (требуются права администратора)
+                    ProcessStartInfo disableInfo = new ProcessStartInfo
+                    {
+                        FileName = "powercfg.exe",
+                        Arguments = "/h off",
+                        UseShellExecute = true,
+                        Verb = "runas"
+                    };
+                    
+                    Process disableProcess = Process.Start(disableInfo);
+                    disableProcess.WaitForExit();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке файла гибернации: {ex.Message}");
+                // Не выбрасываем исключение, так как этот шаг не критичен
+            }
+        }
+        
+        /// <summary>
+        /// Очищает другие временные данные на диске
+        /// </summary>
+        private void CleanOtherTempData(string driveLetter)
+        {
+            try
+            {
+                // Очистка корзины на выбранном диске
+                CleanRecycleBin(driveLetter);
+                
+                // Очистка кэша браузеров
+                CleanBrowserCache(driveLetter);
+                
+                // Очистка корзины Windows Update
+                if (driveLetter.Equals(Path.GetPathRoot(Environment.SystemDirectory), StringComparison.OrdinalIgnoreCase))
+                {
+                    CleanWindowsUpdateCache();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке других временных данных: {ex.Message}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Очищает директорию, удаляя все файлы и поддиректории
+        /// </summary>
+        private void CleanDirectory(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                    return;
+                    
+                DirectoryInfo di = new DirectoryInfo(path);
+                
+                // Удаление файлов
+                foreach (FileInfo file in di.GetFiles())
+                {
+                    try
+                    {
+                        file.Delete();
+                    }
+                    catch
+                    {
+                        // Пропускаем файлы, которые не удалось удалить
+                    }
+                }
+                
+                // Удаление директорий
+                foreach (DirectoryInfo dir in di.GetDirectories())
+                {
+                    try
+                    {
+                        dir.Delete(true);
+                    }
+                    catch
+                    {
+                        // Пропускаем директории, которые не удалось удалить
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке директории {path}: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Очищает корзину для указанного диска
+        /// </summary>
+        private void CleanRecycleBin(string driveLetter)
+        {
+            try
+            {
+                // Используем Shell32.dll для очистки корзины
+                Type shellType = Type.GetTypeFromProgID("Shell.Application");
+                if (shellType != null)
+                {
+                    object shell = Activator.CreateInstance(shellType);
+                    Type recycleBinType = Type.GetTypeFromCLSID(new Guid("645FF040-5081-101B-9F08-00AA002F954E"));
+                    object recycleBin = shell.GetType().InvokeMember("NameSpace", 
+                        System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { 10 });
+                    
+                    if (recycleBin != null)
+                    {
+                        recycleBin.GetType().InvokeMember("Items", 
+                            System.Reflection.BindingFlags.InvokeMethod, null, recycleBin, new object[0]);
+                        
+                        // Это очистит корзину для всех дисков
+                        // Ограничение по отдельному диску не предоставляется через этот API
+                        MessageBoxResult result = MessageBox.Show(
+                            "Очистить корзину для всех дисков?",
+                            "Подтверждение", 
+                            MessageBoxButton.YesNo, 
+                            MessageBoxImage.Question);
+                            
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            // Очистка корзины через SHEmptyRecycleBin
+                            try
+                            {
+                                int resultValue = NativeMethods.SHEmptyRecycleBin(IntPtr.Zero, null, 
+                                    NativeMethods.RecycleBinFlags.SHERB_NOCONFIRMATION | 
+                                    NativeMethods.RecycleBinFlags.SHERB_NOPROGRESSUI);
+                                
+                                if (resultValue != 0)
+                                {
+                                    Debug.WriteLine($"Ошибка при очистке корзины: {resultValue}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Ошибка при вызове SHEmptyRecycleBin: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке корзины: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Очищает кэш браузеров на указанном диске
+        /// </summary>
+        private void CleanBrowserCache(string driveLetter)
+        {
+            try
+            {
+                // Chrome
+                string chromeCachePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Google", "Chrome", "User Data", "Default", "Cache");
+                    
+                if (chromeCachePath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
+                    Directory.Exists(chromeCachePath))
+                {
+                    CleanDirectory(chromeCachePath);
+                }
+                
+                // Edge
+                string edgeCachePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Microsoft", "Edge", "User Data", "Default", "Cache");
+                    
+                if (edgeCachePath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
+                    Directory.Exists(edgeCachePath))
+                {
+                    CleanDirectory(edgeCachePath);
+                }
+                
+                // Firefox
+                string firefoxProfilesPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Mozilla", "Firefox", "Profiles");
+                    
+                if (firefoxProfilesPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
+                    Directory.Exists(firefoxProfilesPath))
+                {
+                    foreach (string profileDir in Directory.GetDirectories(firefoxProfilesPath))
+                    {
+                        string cachePath = Path.Combine(profileDir, "cache2");
+                        if (Directory.Exists(cachePath))
+                        {
+                            CleanDirectory(cachePath);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке кэша браузеров: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Очищает кэш обновлений Windows
+        /// </summary>
+        private void CleanWindowsUpdateCache()
+        {
+            try
+            {
+                // Этот метод требует прав администратора
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = "net",
+                    Arguments = "stop wuauserv",
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    CreateNoWindow = true
+                };
+                
+                Process process = Process.Start(startInfo);
+                process.WaitForExit();
+                
+                string windowsUpdatePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                    "SoftwareDistribution");
+                    
+                if (Directory.Exists(windowsUpdatePath))
+                {
+                    // Попытка переименовать и удалить директорию
+                    try
+                    {
+                        string backup = windowsUpdatePath + ".old";
+                        if (Directory.Exists(backup))
+                        {
+                            Directory.Delete(backup, true);
+                        }
+                        
+                        Directory.Move(windowsUpdatePath, backup);
+                        Directory.CreateDirectory(windowsUpdatePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Не удалось переименовать/удалить SoftwareDistribution: {ex.Message}");
+                    }
+                }
+                
+                // Запускаем службу обновлений Windows
+                startInfo = new ProcessStartInfo
+                {
+                    FileName = "net",
+                    Arguments = "start wuauserv",
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    CreateNoWindow = true
+                };
+                
+                process = Process.Start(startInfo);
+                process.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка при очистке кэша Windows Update: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Возвращает путь к WinDirStat (встроенному или установленному)
+        /// </summary>
+        private string GetWinDirStatPath()
+        {
+            // Сначала пытаемся извлечь встроенный WinDirStat
+            string embeddedPath = ResourceExtractor.ExtractWinDirStat();
+            if (!string.IsNullOrEmpty(embeddedPath) && File.Exists(embeddedPath))
+            {
+                return embeddedPath;
+            }
+            
+            // Если не удалось извлечь встроенный - ищем установленный
+            string[] possiblePaths = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "WinDirStat", "windirstat.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "WinDirStat", "windirstat.exe")
+            };
+            
+            foreach (string path in possiblePaths)
+            {
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            
+            // Если ничего не найдено - сообщаем об ошибке
+            MessageBox.Show(
+                "Не удалось найти WinDirStat. Возможно, необходимо перезапустить программу с правами администратора.",
+                "WinDirStat не найден", 
+                MessageBoxButton.OK, 
+                MessageBoxImage.Warning);
+                
+            return null;
+        }
+    }
+    
+    /// <summary>
+    /// Native методы для работы с корзиной
+    /// </summary>
+    internal static class NativeMethods
+    {
+        [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        internal static extern int SHEmptyRecycleBin(IntPtr hwnd, string pszRootPath, RecycleBinFlags dwFlags);
+        
+        [Flags]
+        internal enum RecycleBinFlags : uint
+        {
+            SHERB_NOCONFIRMATION = 0x00000001,
+            SHERB_NOPROGRESSUI = 0x00000002,
+            SHERB_NOSOUND = 0x00000004
         }
     }
 } 

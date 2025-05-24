@@ -38,4 +38,13 @@
     <Resource Include="OPP.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Resources\welcome_image.xaml" />
+    <None Remove="Resources\Embedded\WinDirStat.exe" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Embedded\WinDirStat.exe" />
+  </ItemGroup>
+
 </Project> 

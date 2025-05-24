@@ -1,5 +1,5 @@
 #define MyAppName "OPP"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "GofMan3"
 #define MyAppURL "https://www.youtube.com/@GofMan3"
 #define MyAppExeName "App.exe"

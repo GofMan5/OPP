@@ -126,6 +126,96 @@
                             <TextBlock Text=" • " Foreground="#666980" Margin="6,0"/>
                             <TextBlock Text="{Binding FileSystem}" Foreground="#cdd6f4" FontSize="12"/>
                         </StackPanel>
+                        
+                        <!-- Кнопки управления диском -->
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Tag="{Binding DriveLetter}" 
+                                    Click="QuickCleanupButton_Click"
+                                    Width="120" Height="30" 
+                                    Margin="0,0,10,0"
+                                    Cursor="Hand"
+                                    ToolTip="Очистка временных файлов, файла гибернации и других некритических данных">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="ButtonBorder" 
+                                                Background="#70A1FF" 
+                                                CornerRadius="4" 
+                                                Padding="8,4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" 
+                                                      Data="M19.36,2.72L20.78,4.14L15.06,9.85C16.13,11.39 16.28,13.24 15.38,14.44L9.06,8.12C10.26,7.22 12.11,7.37 13.65,8.44L19.36,2.72M5.93,17.57C3.92,15.56 2.69,13.16 2.35,10.92L7.23,8.83L14.67,16.27L12.58,21.15C10.34,20.81 7.94,19.58 5.93,17.57Z" 
+                                                      Width="16" 
+                                                      Height="16" 
+                                                      Stretch="Uniform" 
+                                                      Fill="White" 
+                                                      Margin="0,0,6,0"/>
+                                                <TextBlock Grid.Column="1" 
+                                                           Text="Быстрая очистка" 
+                                                           Foreground="White" 
+                                                           FontSize="12" 
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#81aaff"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#5c92f5"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                            
+                            <Button Tag="{Binding DriveLetter}" 
+                                    Click="ManualCleanupButton_Click"
+                                    Width="140" Height="30" 
+                                    Cursor="Hand"
+                                    ToolTip="Запуск WinDirStat для анализа занимаемого места">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="ButtonBorder" 
+                                                Background="#313244" 
+                                                CornerRadius="4" 
+                                                BorderThickness="1"
+                                                BorderBrush="#45475a"
+                                                Padding="8,4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" 
+                                                      Data="M12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M13 7H11V13H17V11H13V7Z" 
+                                                      Width="16" 
+                                                      Height="16" 
+                                                      Stretch="Uniform" 
+                                                      Fill="#cdd6f4" 
+                                                      Margin="0,0,6,0"/>
+                                                <TextBlock Grid.Column="1" 
+                                                           Text="Мануальная очистка" 
+                                                           Foreground="#cdd6f4" 
+                                                           FontSize="12" 
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#45475a"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#585b70"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
                     
                     <!-- Процент использования -->

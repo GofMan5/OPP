@@ -61,12 +61,10 @@ C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\Microsoft.Ex
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\Microsoft.Extensions.FileProviders.Physical.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\Microsoft.Extensions.FileSystemGlobbing.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\Microsoft.Extensions.Primitives.dll
-C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.CodeDom.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.IO.Pipelines.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.Management.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.Text.Encodings.Web.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.Text.Json.dll
-C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\runtimes\win\lib\net8.0\System.Management.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\App.csproj.AssemblyReference.cache
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\Resources\welcome_image.baml
@@ -101,3 +99,5 @@ C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\refint\App.d
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\App.pdb
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\App.genruntimeconfig.cache
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\ref\App.dll
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.CodeDom.dll
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\runtimes\win\lib\net8.0\System.Management.dll
