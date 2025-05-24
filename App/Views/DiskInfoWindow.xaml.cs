@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -150,12 +152,16 @@ namespace App.Views
         private List<DiskModel> _disks = new List<DiskModel>();
         private Storyboard _loadingStoryboard = new Storyboard();
         private bool _isLoading = false;
+        private bool _openMainWindowOnClose = true;
         
         public DiskInfoWindow()
         {
             try
             {
                 InitializeComponent();
+                
+                // Центрируем окно относительно активного монитора
+                this.Loaded += DiskInfoWindow_Loaded;
                 
                 // Настройка анимации загрузки
                 var rotateAnimation = new DoubleAnimation
@@ -179,11 +185,50 @@ namespace App.Views
                 
                 // Загрузка информации о дисках
                 LoadDisksInfo();
+                
+                // Добавляем обработчик закрытия окна
+                Closing += DiskInfoWindow_Closing;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка при инициализации окна информации о дисках: {ex.Message}\n\nStack Trace: {ex.StackTrace}", 
                     "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// Обработчик события загрузки окна
+        /// </summary>
+        private void DiskInfoWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Центрируем окно относительно активного монитора
+            CenterWindowOnScreen();
+        }
+        
+        /// <summary>
+        /// Центрирует окно относительно активного монитора
+        /// </summary>
+        private void CenterWindowOnScreen()
+        {
+            try
+            {
+                // Получаем размеры экрана
+                double screenWidth = SystemParameters.PrimaryScreenWidth;
+                double screenHeight = SystemParameters.PrimaryScreenHeight;
+                
+                // Центрируем окно относительно экрана
+                this.Left = (screenWidth - this.Width) / 2;
+                this.Top = (screenHeight - this.Height) / 2;
+                
+                // Убедимся, что окно полностью видимо
+                if (this.Left < 0) this.Left = 0;
+                if (this.Top < 0) this.Top = 0;
+            }
+            catch (Exception ex)
+            {
+                // В случае ошибки используем стандартное центрирование
+                this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                Debug.WriteLine($"Ошибка при центрировании окна: {ex.Message}");
             }
         }
         
@@ -457,9 +502,6 @@ namespace App.Views
         {
             try
             {
-                // Очищаем старые данные
-                _disks.Clear();
-                
                 // Показываем индикатор загрузки
                 _isLoading = true;
                 LoadingPanel.Visibility = Visibility.Visible;
@@ -469,238 +511,219 @@ namespace App.Views
                 } 
                 catch (Exception ex) 
                 {
-                    MessageBox.Show($"Ошибка анимации: {ex.Message}", "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Debug.WriteLine($"Ошибка анимации: {ex.Message}");
                 }
                 
-                try
+                // Запускаем асинхронную загрузку в отдельном потоке
+                Task.Run(() => 
                 {
-                    // Загружаем информацию напрямую в UI-потоке для отладки
-                    DriveInfo[] drives;
+                    // Временный список для сбора информации
+                    var tempDisks = new List<DiskModel>();
                     
-                    try 
+                    try
                     {
-                        drives = DriveInfo.GetDrives();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Ошибка при получении списка дисков: {ex.Message}", "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
-                        drives = new DriveInfo[0];
-                    }
-                    
-                    foreach (DriveInfo drive in drives)
-                    {
-                        try
+                        DriveInfo[] drives;
+                        
+                        try 
                         {
-                            // Создаем модель диска с упрощенной информацией
-                            var diskModel = new DiskModel
-                            {
-                                DriveLetter = drive.Name,
-                                Name = "Диск"
-                            };
-                            
-                            // Определяем тип диска через WMI
-                            string diskType = "HDD";
-                            try
-                            {
-                                if (drive.DriveType == DriveType.Fixed)
-                                {
-                                    try
-                                    {
-                                        // Добавляем отладочную информацию
-                                        string diskModelInfo = "";
-                                        string diskPhysicalId = "";
-                                        string diskSize = "";
-                                        
-                                        try
-                                        {
-                                            using (var searcher = new ManagementObjectSearcher(
-                                                $"SELECT * FROM Win32_LogicalDisk WHERE DeviceID='{drive.Name.Replace("\\", "").Replace(":", "")}:'"))
-                                            {
-                                                foreach (ManagementObject logicalDisk in searcher.Get())
-                                                {
-                                                    foreach (ManagementObject partition in logicalDisk.GetRelated("Win32_DiskPartition"))
-                                                    {
-                                                        foreach (ManagementObject physicalDisk in partition.GetRelated("Win32_DiskDrive"))
-                                                        {
-                                                            // Сбор отладочной информации
-                                                            diskPhysicalId = physicalDisk["DeviceID"]?.ToString() ?? "Unknown";
-                                                            diskSize = physicalDisk["Size"]?.ToString() ?? "Unknown";
-                                                            
-                                                            if (physicalDisk["Model"] != null)
-                                                            {
-                                                                diskModelInfo = physicalDisk["Model"].ToString();
-                                                                Debug.WriteLine($"Отладка диска {drive.Name}: Модель = {diskModelInfo}, Size = {diskSize}, PhysicalID = {diskPhysicalId}");
-                                                                
-                                                                // Принудительное определение по базе известных моделей
-                                                                string forcedType = ForceDiskTypeByModel(diskModelInfo);
-                                                                if (!string.IsNullOrEmpty(forcedType))
-                                                                {
-                                                                    Debug.WriteLine($"Отладка диска {drive.Name}: Принудительно определен как {forcedType} по модели '{diskModelInfo}'");
-                                                                    diskType = forcedType;
-                                                                    // Если мы принудительно определили тип по модели, прерываем цикл поиска
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Debug.WriteLine($"Ошибка при получении модели диска {drive.Name}: {ex.Message}");
-                                        }
-                                        
-                                        // Если модель не помогла определить тип - используем стандартный метод
-                                        if (diskType == "HDD") // По умолчанию до определения
-                                        {
-                                            diskType = DetermineDriveType(drive.Name);
-                                            Debug.WriteLine($"Отладка диска {drive.Name}: Определен как {diskType} через WMI, модель: {diskModelInfo}, PhysicalID: {diskPhysicalId}");
-                                        }
-                                        
-                                        // Проверим явный HDD признак в модели
-                                        if (diskType == "SSD" && !string.IsNullOrEmpty(diskModelInfo) && 
-                                            (diskModelInfo.ToUpper().Contains("HDD") || 
-                                             diskModelInfo.ToUpper().Contains("HARD DISK") ||
-                                             diskModelInfo.ToUpper().Contains("HARD DRIVE")))
-                                        {
-                                            Debug.WriteLine($"Отладка диска {drive.Name}: Переопределен как HDD из SSD по модели '{diskModelInfo}'");
-                                            diskType = "HDD";
-                                        }
-                                        
-                                        // Смотрим на объем - если больше 2TB, скорее это HDD, а не SSD
-                                        if (diskType == "SSD" && !string.IsNullOrEmpty(diskSize))
-                                        {
-                                            try
-                                            {
-                                                ulong sizeInBytes = Convert.ToUInt64(diskSize);
-                                                ulong sizeInTB = sizeInBytes / 1099511627776; // 1TB в байтах
-                                                
-                                                if (sizeInTB >= 2)
-                                                {
-                                                    Debug.WriteLine($"Отладка диска {drive.Name}: Возможно переопределение SSD в HDD из-за большого размера {sizeInTB}TB");
-                                                }
-                                            }
-                                            catch { }
-                                        }
-                                    }
-                                    catch (Exception ex) 
-                                    {
-                                        Debug.WriteLine($"Ошибка при определении типа диска {drive.Name}: {ex.Message}");
-                                    }
-                                }
-                                else
-                                {
-                                    diskType = drive.DriveType.ToString();
-                                }
-                            }
-                            catch (Exception ex) 
-                            {
-                                Debug.WriteLine($"Ошибка при определении типа диска {drive.Name}: {ex.Message}");
-                            }
-                            
-                            // Устанавливаем иконку на основе типа диска
-                            if (drive.DriveType == DriveType.Fixed)
-                            {
-                                if (diskType == "NVMe")
-                                {
-                                    diskModel.Type = "NVMe";
-                                    diskModel.IconPath = "M9,2V4H7V8H5V4H3V2H9M2,9V15H9V9H2M19,9V15H22V9H19M12,9V15H17V9H12M4,11H7V13H4V11M14,11H15V13H14V11M9,16V22H16V16H9M11,18H14V20H11V18Z";
-                                    diskModel.TypeColorHex = "#89DCEB";
-                                }
-                                else if (diskType == "SSD")
-                                {
-                                    diskModel.Type = "SSD";
-                                    diskModel.IconPath = "M4,6H20V16H4V6M4,16H8V18H4V16M12,16H16V18H12V16M4,4H8V6H4V4M4,18H8V20H4V18M12,18H16V20H12V18M10,16H12V18H10V16M12,4H16V6H12V4M10,4H12V6H10V4Z";
-                                    diskModel.TypeColorHex = "#70A1FF";
-                                }
-                                else
-                                {
-                                    diskModel.Type = "HDD";
-                                    diskModel.IconPath = "M6,2H18A2,2 0 0,1 20,4V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2M6,4V20H18V4H6M16,9H14V6H16V9M12,9H10V6H12V9M8,9H6V6H8V9M16,12H14V9H16V12M12,12H10V9H12V12M8,12H6V9H8V12M16,15H14V12H16V15M12,15H10V12H12V15M8,15H6V12H8V15M16,18H14V15H16V18M12,18H10V15H12V18M8,18H6V15H8V18Z";
-                                    diskModel.TypeColorHex = "#A9B1D6";
-                                }
-                            }
-                            else
-                            {
-                                diskModel.SetupIconForDriveType(drive.DriveType, drive.Name);
-                            }
-                            
-                            // Дополнительная информация
-                            diskModel.FileSystem = drive.IsReady ? drive.DriveFormat : "Не доступно";
-                            
-                            if (drive.IsReady)
-                            {
-                                try
-                                {
-                                    // Получаем объемы с минимальными вычислениями
-                                    diskModel.TotalSpace = (drive.TotalSize / (1024 * 1024 * 1024)) + " ГБ";
-                                    diskModel.FreeSpace = (drive.AvailableFreeSpace / (1024 * 1024 * 1024)) + " ГБ";
-                                    diskModel.UsedSpace = ((drive.TotalSize - drive.AvailableFreeSpace) / (1024 * 1024 * 1024)) + " ГБ";
-                                    
-                                    // Вычисляем заполненность в процентах
-                                    double totalGB = (double)drive.TotalSize / (1024 * 1024 * 1024);
-                                    double usedGB = (double)(drive.TotalSize - drive.AvailableFreeSpace) / (1024 * 1024 * 1024);
-                                    diskModel.UsagePercent = Math.Round((usedGB / totalGB) * 100, 0);
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show($"Ошибка при расчете размера диска {drive.Name}: {ex.Message}", 
-                                        "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
-                                    
-                                    diskModel.TotalSpace = "Ошибка";
-                                    diskModel.FreeSpace = "Ошибка";
-                                    diskModel.UsedSpace = "Ошибка";
-                                }
-                            }
-                            else
-                            {
-                                diskModel.TotalSpace = "Не доступно";
-                                diskModel.FreeSpace = "Не доступно";
-                                diskModel.UsedSpace = "Не доступно";
-                            }
-                            
-                            // Добавляем диск в коллекцию
-                            _disks.Add(diskModel);
+                            drives = DriveInfo.GetDrives();
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show($"Ошибка при обработке диска {drive.Name}: {ex.Message}", 
-                                "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
+                            Debug.WriteLine($"Ошибка при получении списка дисков: {ex.Message}");
+                            drives = new DriveInfo[0];
+                            
+                            // Обновляем UI в главном потоке
+                            Application.Current.Dispatcher.Invoke(() => 
+                            {
+                                MessageBox.Show($"Ошибка при получении списка дисков: {ex.Message}", 
+                                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                            });
+                        }
+                        
+                        foreach (DriveInfo drive in drives)
+                        {
+                            try
+                            {
+                                // Создаем модель диска с упрощенной информацией
+                                var diskModel = new DiskModel
+                                {
+                                    DriveLetter = drive.Name,
+                                    Name = "Диск"
+                                };
+                                
+                                // Определяем тип диска - упрощаем логику для ускорения
+                                string diskType = DetermineSimpleDriveType(drive);
+                                
+                                // Устанавливаем иконку на основе типа диска
+                                SetupDiskModelFromType(diskModel, diskType, drive.DriveType);
+                                
+                                // Дополнительная информация
+                                diskModel.FileSystem = drive.IsReady ? drive.DriveFormat : "Не доступно";
+                                
+                                if (drive.IsReady)
+                                {
+                                    try
+                                    {
+                                        // Получаем объемы с минимальными вычислениями
+                                        diskModel.TotalSpace = FormatByteSize(drive.TotalSize);
+                                        diskModel.FreeSpace = FormatByteSize(drive.AvailableFreeSpace);
+                                        diskModel.UsedSpace = FormatByteSize(drive.TotalSize - drive.AvailableFreeSpace);
+                                        
+                                        // Вычисляем заполненность в процентах
+                                        double totalGB = (double)drive.TotalSize / (1024 * 1024 * 1024);
+                                        double usedGB = (double)(drive.TotalSize - drive.AvailableFreeSpace) / (1024 * 1024 * 1024);
+                                        diskModel.UsagePercent = Math.Round((usedGB / totalGB) * 100, 0);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.WriteLine($"Ошибка при расчете размера диска {drive.Name}: {ex.Message}");
+                                        
+                                        diskModel.TotalSpace = "Ошибка";
+                                        diskModel.FreeSpace = "Ошибка";
+                                        diskModel.UsedSpace = "Ошибка";
+                                    }
+                                }
+                                else
+                                {
+                                    diskModel.TotalSpace = "Не доступно";
+                                    diskModel.FreeSpace = "Не доступно";
+                                    diskModel.UsedSpace = "Не доступно";
+                                }
+                                
+                                // Добавляем диск в коллекцию
+                                tempDisks.Add(diskModel);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Ошибка при обработке диска {drive.Name}: {ex.Message}");
+                            }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Общая ошибка при загрузке дисков: {ex.Message}", 
-                        "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                
-                // Обновляем источник данных
-                try 
-                {
-                    DisksList.ItemsSource = null;
-                    DisksList.ItemsSource = _disks;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка при обновлении списка: {ex.Message}", 
-                        "Отладка", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                
-                // Скрываем индикатор загрузки
-                _isLoading = false;
-                
-                try 
-                { 
-                    LoadingPanel.Visibility = Visibility.Collapsed;
-                    _loadingStoryboard?.Stop(); 
-                } 
-                catch {}
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Общая ошибка при загрузке дисков: {ex.Message}");
+                    }
+                    
+                    // Обновляем UI в главном потоке
+                    Application.Current.Dispatcher.Invoke(() => 
+                    {
+                        try 
+                        {
+                            // Очищаем старые данные
+                            _disks.Clear();
+                            
+                            // Копируем данные из временного списка
+                            _disks.AddRange(tempDisks);
+                            
+                            // Обновляем источник данных
+                            DisksList.ItemsSource = null;
+                            DisksList.ItemsSource = _disks;
+                            
+                            // Скрываем индикатор загрузки
+                            _isLoading = false;
+                            LoadingPanel.Visibility = Visibility.Collapsed;
+                            _loadingStoryboard?.Stop();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Ошибка при обновлении UI: {ex.Message}");
+                        }
+                    });
+                });
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"Критическая ошибка: {ex.Message}");
                 MessageBox.Show($"Критическая ошибка: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                // Скрываем индикатор загрузки в случае ошибки
+                _isLoading = false;
+                LoadingPanel.Visibility = Visibility.Collapsed;
+                _loadingStoryboard?.Stop();
+            }
+        }
+        
+        /// <summary>
+        /// Форматирует размер в байтах в читаемый формат
+        /// </summary>
+        private string FormatByteSize(long byteSize)
+        {
+            string[] sizes = { "Б", "КБ", "МБ", "ГБ", "ТБ" };
+            double len = byteSize;
+            int order = 0;
+            
+            while (len >= 1024 && order < sizes.Length - 1) 
+            {
+                order++;
+                len = len / 1024;
+            }
+            
+            return string.Format("{0:0.##} {1}", len, sizes[order]);
+        }
+        
+        /// <summary>
+        /// Быстрое определение типа диска без использования WMI
+        /// </summary>
+        private string DetermineSimpleDriveType(DriveInfo drive)
+        {
+            // Если это не фиксированный диск, возвращаем тип как есть
+            if (drive.DriveType != DriveType.Fixed)
+                return drive.DriveType.ToString();
+                
+            // Для фиксированных дисков используем простую эвристику
+            // По умолчанию считаем диск HDD
+            string diskType = "HDD";
+                
+            try
+            {
+                // Проверяем системный диск - он обычно SSD в современных системах
+                if (drive.Name.StartsWith(Path.GetPathRoot(Environment.SystemDirectory), StringComparison.OrdinalIgnoreCase))
+                {
+                    diskType = "SSD";
+                }
+                
+                // Для более точного определения можно проверить производительность
+                // Но это может быть медленной операцией
+                
+                return diskType;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка в DetermineSimpleDriveType: {ex.Message}");
+                return "HDD"; // По умолчанию
+            }
+        }
+        
+        /// <summary>
+        /// Устанавливает свойства модели диска на основе его типа
+        /// </summary>
+        private void SetupDiskModelFromType(DiskModel model, string diskType, DriveType driveType)
+        {
+            if (driveType == DriveType.Fixed)
+            {
+                if (diskType == "NVMe")
+                {
+                    model.Type = "NVMe";
+                    model.IconPath = "M9,2V4H7V8H5V4H3V2H9M2,9V15H9V9H2M19,9V15H22V9H19M12,9V15H17V9H12M4,11H7V13H4V11M14,11H15V13H14V11M9,16V22H16V16H9M11,18H14V20H11V18Z";
+                    model.TypeColorHex = "#89DCEB";
+                }
+                else if (diskType == "SSD")
+                {
+                    model.Type = "SSD";
+                    model.IconPath = "M4,6H20V16H4V6M4,16H8V18H4V16M12,16H16V18H12V16M4,4H8V6H4V4M4,18H8V20H4V18M12,18H16V20H12V18M10,16H12V18H10V16M12,4H16V6H12V4M10,4H12V6H10V4Z";
+                    model.TypeColorHex = "#70A1FF";
+                }
+                else
+                {
+                    model.Type = "HDD";
+                    model.IconPath = "M6,2H18A2,2 0 0,1 20,4V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2M6,4V20H18V4H6M16,9H14V6H16V9M12,9H10V6H12V9M8,9H6V6H8V9M16,12H14V9H16V12M12,12H10V9H12V12M8,12H6V9H8V12M16,15H14V12H16V15M12,15H10V12H12V15M8,15H6V12H8V15M16,18H14V15H16V18M12,18H10V15H12V18M8,18H6V15H8V18Z";
+                    model.TypeColorHex = "#A9B1D6";
+                }
+            }
+            else
+            {
+                model.SetupIconForDriveType(driveType, model.DriveLetter);
             }
         }
         
@@ -727,103 +750,63 @@ namespace App.Views
         }
         
         /// <summary>
-        /// Закрытие окна
+        /// Обработчик нажатия на кнопку возврата в главное меню
         /// </summary>
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        private void BackButton_Click(object sender, RoutedEventArgs e)
         {
-            Close();
+            ReturnToMainWindow();
         }
         
         /// <summary>
-        /// Обработчик нажатия на кнопку быстрой очистки
+        /// Метод для возврата к главному окну
         /// </summary>
-        private void QuickCleanupButton_Click(object sender, RoutedEventArgs e)
+        private void ReturnToMainWindow()
         {
-            try
+            // Создаем и показываем главное окно
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
+            
+            // Устанавливаем флаг, чтобы не открывать главное окно повторно при закрытии
+            _openMainWindowOnClose = false;
+            
+            // Закрываем текущее окно
+            this.Close();
+        }
+        
+        /// <summary>
+        /// Обработчик события закрытия окна
+        /// </summary>
+        private void DiskInfoWindow_Closing(object sender, CancelEventArgs e)
+        {
+            // Останавливаем таймеры и анимации перед закрытием
+            StopAnimations();
+            
+            // Если нужно, открываем главное окно
+            if (_openMainWindowOnClose)
             {
-                // Получаем букву диска из тега кнопки
-                if (sender is Button button && button.Tag is string driveLetter)
-                {
-                    // Запрос подтверждения
-                    MessageBoxResult result = MessageBox.Show(
-                        $"Выполнить быструю очистку диска {driveLetter}?\n\nБудут очищены:\n- Временные файлы\n- Файл гибернации\n- Другие некритические данные",
-                        "Подтверждение", 
-                        MessageBoxButton.YesNo, 
-                        MessageBoxImage.Question);
-                        
-                    if (result != MessageBoxResult.Yes)
-                        return;
-                        
-                    // Преобразуем букву диска к формату C:
-                    string driveLetterOnly = driveLetter.Replace("\\", "").TrimEnd(':') + ":";
-                    
-                    try
-                    {
-                        // Показываем индикатор выполнения
-                        button.IsEnabled = false;
-                        
-                        // Запускаем процесс очистки временных файлов
-                        Task.Run(() => 
-                        {
-                            try
-                            {
-                                // Очистка %TEMP% директории
-                                CleanTempDirectory(driveLetterOnly);
-                                
-                                // Очистка файла гибернации, если диск системный
-                                if (driveLetterOnly.ToUpper() == Path.GetPathRoot(Environment.SystemDirectory))
-                                {
-                                    CleanHibernationFile();
-                                }
-                                
-                                // Очистка других некритичных данных
-                                CleanOtherTempData(driveLetterOnly);
-                                
-                                // Обновляем информацию о дисках после очистки
-                                Application.Current.Dispatcher.Invoke(() => 
-                                {
-                                    LoadDisksInfo();
-                                    MessageBox.Show(
-                                        $"Быстрая очистка диска {driveLetter} выполнена успешно.",
-                                        "Очистка завершена", 
-                                        MessageBoxButton.OK, 
-                                        MessageBoxImage.Information);
-                                    button.IsEnabled = true;
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    MessageBox.Show(
-                                        $"Ошибка при быстрой очистке диска {driveLetter}: {ex.Message}",
-                                        "Ошибка", 
-                                        MessageBoxButton.OK, 
-                                        MessageBoxImage.Error);
-                                    button.IsEnabled = true;
-                                });
-                            }
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(
-                            $"Ошибка при запуске очистки: {ex.Message}",
-                            "Ошибка", 
-                            MessageBoxButton.OK, 
-                            MessageBoxImage.Error);
-                        button.IsEnabled = true;
-                    }
-                }
+                var mainWindow = new MainWindow();
+                mainWindow.Show();
             }
-            catch (Exception ex)
+        }
+        
+        /// <summary>
+        /// Останавливает все анимации перед закрытием окна
+        /// </summary>
+        private void StopAnimations()
+        {
+            // Остановка анимации загрузки
+            if (_loadingStoryboard != null)
             {
-                MessageBox.Show(
-                    $"Ошибка в обработчике нажатия кнопки быстрой очистки: {ex.Message}",
-                    "Ошибка", 
-                    MessageBoxButton.OK, 
-                    MessageBoxImage.Error);
+                _loadingStoryboard.Stop();
             }
+        }
+        
+        /// <summary>
+        /// Обработчик нажатия на кнопку закрытия
+        /// </summary>
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
         }
         
         /// <summary>
@@ -918,336 +901,6 @@ namespace App.Views
                     "Ошибка", 
                     MessageBoxButton.OK, 
                     MessageBoxImage.Error);
-            }
-        }
-        
-        /// <summary>
-        /// Очищает временные файлы в директории %TEMP%
-        /// </summary>
-        private void CleanTempDirectory(string driveLetter)
-        {
-            try
-            {
-                // Получаем пути к временным директориям
-                string tempPath = Path.GetTempPath();
-                string localAppDataTemp = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
-                    "Temp");
-                
-                // Проверяем, что временная директория находится на выбранном диске
-                if (tempPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
-                {
-                    CleanDirectory(tempPath);
-                }
-                
-                if (localAppDataTemp.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
-                {
-                    CleanDirectory(localAppDataTemp);
-                }
-                
-                // Проверяем системную временную директорию Windows\Temp
-                string winTempPath = Path.Combine(
-                    Path.GetPathRoot(Environment.SystemDirectory), 
-                    "Windows", 
-                    "Temp");
-                    
-                if (winTempPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase))
-                {
-                    CleanDirectory(winTempPath);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке временной директории: {ex.Message}");
-                throw;
-            }
-        }
-        
-        /// <summary>
-        /// Очищает файл гибернации (только для системного диска)
-        /// </summary>
-        private void CleanHibernationFile()
-        {
-            try
-            {
-                // Проверяем, выключена ли гибернация
-                ProcessStartInfo powercfgInfo = new ProcessStartInfo
-                {
-                    FileName = "powercfg.exe",
-                    Arguments = "/h /type full",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-                
-                // Проверяем текущее состояние
-                Process powercfgProcess = Process.Start(powercfgInfo);
-                string output = powercfgProcess.StandardOutput.ReadToEnd();
-                powercfgProcess.WaitForExit();
-                
-                // Если гибернация не выключена, выключаем и удаляем файл
-                if (!output.Contains("Гибернация выключена") && !output.Contains("Hibernation is disabled"))
-                {
-                    // Отключаем гибернацию (требуются права администратора)
-                    ProcessStartInfo disableInfo = new ProcessStartInfo
-                    {
-                        FileName = "powercfg.exe",
-                        Arguments = "/h off",
-                        UseShellExecute = true,
-                        Verb = "runas"
-                    };
-                    
-                    Process disableProcess = Process.Start(disableInfo);
-                    disableProcess.WaitForExit();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке файла гибернации: {ex.Message}");
-                // Не выбрасываем исключение, так как этот шаг не критичен
-            }
-        }
-        
-        /// <summary>
-        /// Очищает другие временные данные на диске
-        /// </summary>
-        private void CleanOtherTempData(string driveLetter)
-        {
-            try
-            {
-                // Очистка корзины на выбранном диске
-                CleanRecycleBin(driveLetter);
-                
-                // Очистка кэша браузеров
-                CleanBrowserCache(driveLetter);
-                
-                // Очистка корзины Windows Update
-                if (driveLetter.Equals(Path.GetPathRoot(Environment.SystemDirectory), StringComparison.OrdinalIgnoreCase))
-                {
-                    CleanWindowsUpdateCache();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке других временных данных: {ex.Message}");
-                throw;
-            }
-        }
-        
-        /// <summary>
-        /// Очищает директорию, удаляя все файлы и поддиректории
-        /// </summary>
-        private void CleanDirectory(string path)
-        {
-            try
-            {
-                if (!Directory.Exists(path))
-                    return;
-                    
-                DirectoryInfo di = new DirectoryInfo(path);
-                
-                // Удаление файлов
-                foreach (FileInfo file in di.GetFiles())
-                {
-                    try
-                    {
-                        file.Delete();
-                    }
-                    catch
-                    {
-                        // Пропускаем файлы, которые не удалось удалить
-                    }
-                }
-                
-                // Удаление директорий
-                foreach (DirectoryInfo dir in di.GetDirectories())
-                {
-                    try
-                    {
-                        dir.Delete(true);
-                    }
-                    catch
-                    {
-                        // Пропускаем директории, которые не удалось удалить
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке директории {path}: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Очищает корзину для указанного диска
-        /// </summary>
-        private void CleanRecycleBin(string driveLetter)
-        {
-            try
-            {
-                // Используем Shell32.dll для очистки корзины
-                Type shellType = Type.GetTypeFromProgID("Shell.Application");
-                if (shellType != null)
-                {
-                    object shell = Activator.CreateInstance(shellType);
-                    Type recycleBinType = Type.GetTypeFromCLSID(new Guid("645FF040-5081-101B-9F08-00AA002F954E"));
-                    object recycleBin = shell.GetType().InvokeMember("NameSpace", 
-                        System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { 10 });
-                    
-                    if (recycleBin != null)
-                    {
-                        recycleBin.GetType().InvokeMember("Items", 
-                            System.Reflection.BindingFlags.InvokeMethod, null, recycleBin, new object[0]);
-                        
-                        // Это очистит корзину для всех дисков
-                        // Ограничение по отдельному диску не предоставляется через этот API
-                        MessageBoxResult result = MessageBox.Show(
-                            "Очистить корзину для всех дисков?",
-                            "Подтверждение", 
-                            MessageBoxButton.YesNo, 
-                            MessageBoxImage.Question);
-                            
-                        if (result == MessageBoxResult.Yes)
-                        {
-                            // Очистка корзины через SHEmptyRecycleBin
-                            try
-                            {
-                                int resultValue = NativeMethods.SHEmptyRecycleBin(IntPtr.Zero, null, 
-                                    NativeMethods.RecycleBinFlags.SHERB_NOCONFIRMATION | 
-                                    NativeMethods.RecycleBinFlags.SHERB_NOPROGRESSUI);
-                                
-                                if (resultValue != 0)
-                                {
-                                    Debug.WriteLine($"Ошибка при очистке корзины: {resultValue}");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Ошибка при вызове SHEmptyRecycleBin: {ex.Message}");
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке корзины: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Очищает кэш браузеров на указанном диске
-        /// </summary>
-        private void CleanBrowserCache(string driveLetter)
-        {
-            try
-            {
-                // Chrome
-                string chromeCachePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Google", "Chrome", "User Data", "Default", "Cache");
-                    
-                if (chromeCachePath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
-                    Directory.Exists(chromeCachePath))
-                {
-                    CleanDirectory(chromeCachePath);
-                }
-                
-                // Edge
-                string edgeCachePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Microsoft", "Edge", "User Data", "Default", "Cache");
-                    
-                if (edgeCachePath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
-                    Directory.Exists(edgeCachePath))
-                {
-                    CleanDirectory(edgeCachePath);
-                }
-                
-                // Firefox
-                string firefoxProfilesPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Mozilla", "Firefox", "Profiles");
-                    
-                if (firefoxProfilesPath.StartsWith(driveLetter, StringComparison.OrdinalIgnoreCase) && 
-                    Directory.Exists(firefoxProfilesPath))
-                {
-                    foreach (string profileDir in Directory.GetDirectories(firefoxProfilesPath))
-                    {
-                        string cachePath = Path.Combine(profileDir, "cache2");
-                        if (Directory.Exists(cachePath))
-                        {
-                            CleanDirectory(cachePath);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке кэша браузеров: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Очищает кэш обновлений Windows
-        /// </summary>
-        private void CleanWindowsUpdateCache()
-        {
-            try
-            {
-                // Этот метод требует прав администратора
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = "net",
-                    Arguments = "stop wuauserv",
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    CreateNoWindow = true
-                };
-                
-                Process process = Process.Start(startInfo);
-                process.WaitForExit();
-                
-                string windowsUpdatePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-                    "SoftwareDistribution");
-                    
-                if (Directory.Exists(windowsUpdatePath))
-                {
-                    // Попытка переименовать и удалить директорию
-                    try
-                    {
-                        string backup = windowsUpdatePath + ".old";
-                        if (Directory.Exists(backup))
-                        {
-                            Directory.Delete(backup, true);
-                        }
-                        
-                        Directory.Move(windowsUpdatePath, backup);
-                        Directory.CreateDirectory(windowsUpdatePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Не удалось переименовать/удалить SoftwareDistribution: {ex.Message}");
-                    }
-                }
-                
-                // Запускаем службу обновлений Windows
-                startInfo = new ProcessStartInfo
-                {
-                    FileName = "net",
-                    Arguments = "start wuauserv",
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    CreateNoWindow = true
-                };
-                
-                process = Process.Start(startInfo);
-                process.WaitForExit();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Ошибка при очистке кэша Windows Update: {ex.Message}");
             }
         }
         

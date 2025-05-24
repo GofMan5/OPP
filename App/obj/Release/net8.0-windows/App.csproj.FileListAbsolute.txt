@@ -101,3 +101,7 @@ C:\Users\GofMan3\Desktop\.Projects\OPP\App\bin\Release\net8.0-windows\runtimes\w
 C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\DiskInfoWindow.g.cs
 C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\GeneratedInternalTypeHelper.g.cs
 C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\DiskInfoWindow.baml
+C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\ManualOptimizationWindow.g.cs
+C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\OptimizationWindow.g.cs
+C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\ManualOptimizationWindow.baml
+C:\Users\GofMan3\Desktop\.Projects\OPP\App\obj\Release\net8.0-windows\Views\OptimizationWindow.baml

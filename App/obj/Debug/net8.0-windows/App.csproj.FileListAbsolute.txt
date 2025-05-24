@@ -101,3 +101,7 @@ C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\App.genrunti
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\ref\App.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\System.CodeDom.dll
 C:\Users\GofMan3\Desktop\.Projects\OPP\app\bin\Debug\net8.0-windows\runtimes\win\lib\net8.0\System.Management.dll
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\Views\OptimizationWindow.g.cs
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\Views\ManualOptimizationWindow.g.cs
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\Views\ManualOptimizationWindow.baml
+C:\Users\GofMan3\Desktop\.Projects\OPP\app\obj\Debug\net8.0-windows\Views\OptimizationWindow.baml

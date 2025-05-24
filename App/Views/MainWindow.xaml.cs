@@ -526,12 +526,28 @@ namespace App.Views
             // Показываем индикатор загрузки и запускаем его анимацию
             ShowLoadingIndicator();
             
-            // Здесь будет логика обработки кнопки "Оптимизация"
-            MessageBox.Show("Функция оптимизации будет доступна в следующих версиях программы.", 
-                "Оптимизация", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                // Создаем и открываем окно оптимизации
+                OptimizationWindow optimizationWindow = new OptimizationWindow();
                 
-            // Скрываем индикатор загрузки
-            HideLoadingIndicator();
+                // Скрываем индикатор загрузки перед показом окна
+                HideLoadingIndicator();
+                
+                // Открываем окно оптимизации
+                optimizationWindow.Show();
+                
+                // Закрываем главное окно
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при открытии окна оптимизации: {ex.Message}", 
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                // Скрываем индикатор загрузки в случае ошибки
+                HideLoadingIndicator();
+            }
         }
 
         private void CleanupButton_Click(object sender, RoutedEventArgs e)
@@ -547,9 +563,11 @@ namespace App.Views
                 // Скрываем индикатор загрузки перед показом окна
                 HideLoadingIndicator();
                 
-                // Открываем окно как модальное диалоговое окно
-                diskInfoWindow.Owner = this;
-                diskInfoWindow.ShowDialog();
+                // Открываем окно информации о дисках
+                diskInfoWindow.Show();
+                
+                // Закрываем главное окно
+                this.Close();
             }
             catch (Exception ex)
             {
@@ -574,9 +592,11 @@ namespace App.Views
                 // Скрываем индикатор загрузки перед показом окна
                 HideLoadingIndicator();
                 
-                // Открываем окно настроек как модальное диалоговое окно
-                settingsWindow.Owner = this;
-                settingsWindow.ShowDialog();
+                // Открываем окно настроек
+                settingsWindow.Show();
+                
+                // Закрываем главное окно
+                this.Close();
             }
             catch (Exception ex)
             {

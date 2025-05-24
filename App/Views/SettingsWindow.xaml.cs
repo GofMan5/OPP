@@ -7,6 +7,13 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using App.Helpers;
+using System.ComponentModel;
+using System.IO;
+using System.Net.Http;
+using System.Text.Json;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace App.Views
 {
@@ -34,9 +41,15 @@ namespace App.Views
         // Текущая версия приложения
         private string _appVersion;
         
+        // Добавляем флаг для отслеживания того, нужно ли открывать главное окно при закрытии
+        private bool _openMainWindowOnClose = true;
+        
         public SettingsWindow()
         {
             InitializeComponent();
+            
+            // Центрируем окно относительно активного монитора
+            this.Loaded += SettingsWindow_Loaded;
             
             // Получаем версию из объекта приложения
             _appVersion = ((App.AppClass)Application.Current).AppVersion;
@@ -44,10 +57,8 @@ namespace App.Views
             // Загрузка текущих настроек
             LoadSettings();
             
-            // Инициализация менеджера обновлений
+            // Инициализация менеджера обновлений с текущей версией приложения
             _updateManager = new UpdateManager(_appVersion);
-            _updateManager.UpdateStatusChanged += UpdateManager_StatusChanged;
-            _updateManager.DownloadProgressChanged += UpdateManager_ProgressChanged;
             
             // Запоминаем текущую активную панель
             _currentPanel = AppearancePanel;
@@ -55,6 +66,45 @@ namespace App.Views
             // Отображаем информацию о версии
             VersionInfoText.Text = $"Версия: {_appVersion}";
             CurrentVersionText.Text = $"Версия {_appVersion} (стабильная)";
+            
+            // Добавляем обработчик закрытия окна
+            Closing += SettingsWindow_Closing;
+        }
+        
+        /// <summary>
+        /// Обработчик события загрузки окна
+        /// </summary>
+        private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Центрируем окно относительно активного монитора
+            CenterWindowOnScreen();
+        }
+        
+        /// <summary>
+        /// Центрирует окно относительно активного монитора
+        /// </summary>
+        private void CenterWindowOnScreen()
+        {
+            try
+            {
+                // Получаем размеры экрана
+                double screenWidth = SystemParameters.PrimaryScreenWidth;
+                double screenHeight = SystemParameters.PrimaryScreenHeight;
+                
+                // Центрируем окно относительно экрана
+                this.Left = (screenWidth - this.Width) / 2;
+                this.Top = (screenHeight - this.Height) / 2;
+                
+                // Убедимся, что окно полностью видимо
+                if (this.Left < 0) this.Left = 0;
+                if (this.Top < 0) this.Top = 0;
+            }
+            catch (Exception ex)
+            {
+                // В случае ошибки используем стандартное центрирование
+                this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                Debug.WriteLine($"Ошибка при центрировании окна: {ex.Message}");
+            }
         }
         
         /// <summary>
@@ -130,8 +180,7 @@ namespace App.Views
         /// </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Просто закрываем окно, так как настройки сохраняются автоматически
-            Close();
+            this.Close();
         }
         
         /// <summary>
@@ -310,6 +359,57 @@ namespace App.Views
         }
         
         /// <summary>
+        /// Проверяет наличие обновлений
+        /// </summary>
+        private async Task CheckForUpdatesAsync()
+        {
+            // Показываем статус проверки
+            UpdateStatusText.Text = "Проверка обновлений...";
+            UpdateStatusText.Visibility = Visibility.Visible;
+            CheckUpdateButton.IsEnabled = false;
+            
+            try
+            {
+                // Проверяем обновления
+                bool updateAvailable = await _updateManager.CheckForUpdatesAsync();
+                
+                if (updateAvailable)
+                {
+                    // Загружаем список изменений
+                    string changelog = await _updateManager.DownloadChangelogAsync();
+                    
+                    // Устанавливаем статусный текст - используем правильное свойство AvailableUpdate.Version
+                    UpdateStatusText.Text = $"Доступно обновление {_updateManager.AvailableUpdate?.Version}";
+                    
+                    // Показываем кнопку установки
+                    InstallUpdateButton.Visibility = Visibility.Visible;
+                    InstallUpdateButton.IsEnabled = true;
+                }
+                else
+                {
+                    // Обновлений нет
+                    UpdateStatusText.Text = "У вас установлена последняя версия";
+                    InstallUpdateButton.Visibility = Visibility.Collapsed;
+                }
+                
+                // Обновляем время последней проверки
+                SettingsManager.Settings.LastUpdateCheck = DateTime.Now;
+                SettingsManager.SaveSettings();
+                
+                LastCheckText.Text = $"Последняя проверка обновлений: {SettingsManager.Settings.LastUpdateCheck:dd.MM.yyyy HH:mm}";
+            }
+            catch (Exception ex)
+            {
+                UpdateStatusText.Text = $"Ошибка проверки обновлений: {ex.Message}";
+                Debug.WriteLine($"Ошибка проверки обновлений: {ex}");
+            }
+            finally
+            {
+                CheckUpdateButton.IsEnabled = true;
+            }
+        }
+        
+        /// <summary>
         /// Обработчик для кнопки установки обновления
         /// </summary>
         private async void InstallUpdateButton_Click(object sender, RoutedEventArgs e)
@@ -341,43 +441,76 @@ namespace App.Views
         }
         
         /// <summary>
-        /// Проверяет наличие обновлений
+        /// Обработчик нажатия на кнопку "Telegram"
         /// </summary>
-        private async Task CheckForUpdatesAsync()
+        private void OpenTelegram_Click(object sender, RoutedEventArgs e)
         {
-            // Показываем статус проверки
-            UpdateStatusText.Text = "Проверка обновлений...";
-            UpdateStatusText.Visibility = Visibility.Visible;
-            CheckUpdateButton.IsEnabled = false;
-            
-            // Проверяем обновления
-            bool updateAvailable = await _updateManager.CheckForUpdatesAsync();
-            
-            if (updateAvailable)
+            try
             {
-                // Загружаем список изменений
-                string changelog = await _updateManager.DownloadChangelogAsync();
-                
-                // Устанавливаем статусный текст
-                UpdateStatusText.Text = $"Доступно обновление {_updateManager.AvailableUpdate.Version}";
-                
-                // Показываем кнопку установки
-                InstallUpdateButton.Visibility = Visibility.Visible;
-                InstallUpdateButton.IsEnabled = true;
+                // Открываем ссылку в браузере по умолчанию
+                var telegramUrl = "https://t.me/+fzek1GcREpgwYmUy";
+                Process.Start(new ProcessStartInfo(telegramUrl) { UseShellExecute = true });
             }
-            else
+            catch (Exception ex)
             {
-                // Обновлений нет
-                UpdateStatusText.Text = "У вас установлена последняя версия";
-                InstallUpdateButton.Visibility = Visibility.Collapsed;
+                MessageBox.Show($"Не удалось открыть Telegram: {ex.Message}", 
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+        
+        /// <summary>
+        /// Обработчик нажатия на кнопку "YouTube"
+        /// </summary>
+        private void OpenYouTube_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Открываем ссылку в браузере по умолчанию
+                var youtubeUrl = "https://www.youtube.com/@GofMan3";
+                Process.Start(new ProcessStartInfo(youtubeUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Не удалось открыть YouTube: {ex.Message}", 
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// Обработчик нажатия на кнопку возврата в главное меню
+        /// </summary>
+        private void BackButton_Click(object sender, RoutedEventArgs e)
+        {
+            ReturnToMainWindow();
+        }
+        
+        /// <summary>
+        /// Метод для возврата к главному окну
+        /// </summary>
+        private void ReturnToMainWindow()
+        {
+            // Создаем и показываем главное окно
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
             
-            // Обновляем время последней проверки
-            SettingsManager.Settings.LastUpdateCheck = DateTime.Now;
-            SettingsManager.SaveSettings();
+            // Устанавливаем флаг, чтобы не открывать главное окно повторно при закрытии
+            _openMainWindowOnClose = false;
             
-            LastCheckText.Text = $"Последняя проверка обновлений: {SettingsManager.Settings.LastUpdateCheck:dd.MM.yyyy HH:mm}";
-            CheckUpdateButton.IsEnabled = true;
+            // Закрываем текущее окно
+            this.Close();
+        }
+        
+        /// <summary>
+        /// Обработчик события закрытия окна
+        /// </summary>
+        private void SettingsWindow_Closing(object sender, CancelEventArgs e)
+        {
+            // Если нужно, открываем главное окно
+            if (_openMainWindowOnClose)
+            {
+                var mainWindow = new MainWindow();
+                mainWindow.Show();
+            }
         }
         
         /// <summary>
@@ -415,42 +548,6 @@ namespace App.Views
             Dispatcher.Invoke(() => {
                 UpdateProgressBar.Value = progress;
             });
-        }
-        
-        /// <summary>
-        /// Обработчик нажатия на кнопку "Telegram"
-        /// </summary>
-        private void OpenTelegram_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Открываем ссылку в браузере по умолчанию
-                var telegramUrl = "https://t.me/+fzek1GcREpgwYmUy";
-                Process.Start(new ProcessStartInfo(telegramUrl) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Не удалось открыть Telegram: {ex.Message}", 
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-        
-        /// <summary>
-        /// Обработчик нажатия на кнопку "YouTube"
-        /// </summary>
-        private void OpenYouTube_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Открываем ссылку в браузере по умолчанию
-                var youtubeUrl = "https://www.youtube.com/@GofMan3";
-                Process.Start(new ProcessStartInfo(youtubeUrl) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Не удалось открыть YouTube: {ex.Message}", 
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
         }
     }
 } 

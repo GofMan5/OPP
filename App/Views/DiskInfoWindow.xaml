@@ -130,51 +130,8 @@
                         <!-- Кнопки управления диском -->
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Button Tag="{Binding DriveLetter}" 
-                                    Click="QuickCleanupButton_Click"
-                                    Width="120" Height="30" 
-                                    Margin="0,0,10,0"
-                                    Cursor="Hand"
-                                    ToolTip="Очистка временных файлов, файла гибернации и других некритических данных">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="ButtonBorder" 
-                                                Background="#70A1FF" 
-                                                CornerRadius="4" 
-                                                Padding="8,4">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Path Grid.Column="0" 
-                                                      Data="M19.36,2.72L20.78,4.14L15.06,9.85C16.13,11.39 16.28,13.24 15.38,14.44L9.06,8.12C10.26,7.22 12.11,7.37 13.65,8.44L19.36,2.72M5.93,17.57C3.92,15.56 2.69,13.16 2.35,10.92L7.23,8.83L14.67,16.27L12.58,21.15C10.34,20.81 7.94,19.58 5.93,17.57Z" 
-                                                      Width="16" 
-                                                      Height="16" 
-                                                      Stretch="Uniform" 
-                                                      Fill="White" 
-                                                      Margin="0,0,6,0"/>
-                                                <TextBlock Grid.Column="1" 
-                                                           Text="Быстрая очистка" 
-                                                           Foreground="White" 
-                                                           FontSize="12" 
-                                                           VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#81aaff"/>
-                                            </Trigger>
-                                            <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#5c92f5"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                            
-                            <Button Tag="{Binding DriveLetter}" 
                                     Click="ManualCleanupButton_Click"
-                                    Width="140" Height="30" 
+                                    Width="170" Height="30" 
                                     Cursor="Hand"
                                     ToolTip="Запуск WinDirStat для анализа занимаемого места">
                                 <Button.Template>
@@ -272,6 +229,19 @@
                     
                     <!-- Кнопки управления окном -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0">
+                        <!-- Кнопка возврата к главному меню -->
+                        <Button x:Name="BackButton" 
+                                Style="{StaticResource WindowControlButton}"
+                                Click="BackButton_Click"
+                                Margin="3,0,3,0"
+                                ToolTip="Вернуться в главное меню">
+                            <Grid>
+                                <TextBlock Text="&#xE72B;" 
+                                          FontFamily="Segoe MDL2 Assets" 
+                                          Foreground="#cdd6f4"/>
+                            </Grid>
+                        </Button>
+                        
                         <!-- Кнопка Закрыть -->
                         <Button x:Name="CloseButton" 
                                 Style="{StaticResource CloseButtonStyle}"

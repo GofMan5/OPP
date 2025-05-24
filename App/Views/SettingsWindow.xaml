@@ -453,6 +453,19 @@
                     
                     <!-- Кнопки управления окном -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0">
+                        <!-- Кнопка возврата к главному меню -->
+                        <Button x:Name="BackButton" 
+                                Style="{StaticResource WindowControlButton}"
+                                Click="BackButton_Click"
+                                Margin="3,0,3,0"
+                                ToolTip="Вернуться в главное меню">
+                            <Grid>
+                                <TextBlock Text="&#xE72B;" 
+                                          FontFamily="Segoe MDL2 Assets" 
+                                          Foreground="#cdd6f4"/>
+                            </Grid>
+                        </Button>
+                        
                         <!-- Кнопка Закрыть -->
                         <Button x:Name="CloseButton" 
                                 Style="{StaticResource CloseButtonStyle}"
