@@ -20,6 +20,49 @@
             <CornerRadius x:Key="DefaultCornerRadius">6</CornerRadius>
             <CornerRadius x:Key="DisabledCornerRadius">0</CornerRadius>
             
+            <!-- Шаблон для кнопок с закругленными углами -->
+            <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="Button">
+                <Border x:Name="Border" 
+                        Background="{TemplateBinding Background}" 
+                        BorderBrush="{TemplateBinding BorderBrush}" 
+                        BorderThickness="{TemplateBinding BorderThickness}" 
+                        CornerRadius="8">
+                    <ContentPresenter HorizontalAlignment="Center" 
+                                      VerticalAlignment="Center" 
+                                      Margin="{TemplateBinding Padding}"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Opacity" Value="0.9"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.3" Color="#74c7ec"/>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter Property="Opacity" Value="0.8"/>
+                        <Setter TargetName="Border" Property="RenderTransform">
+                            <Setter.Value>
+                                <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                            </Setter.Value>
+                        </Setter>
+                        <Setter TargetName="Border" Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Opacity" Value="0.5"/>
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+            
+            <!-- Стиль для закругленных кнопок -->
+            <Style x:Key="RoundedButton" TargetType="Button">
+                <Setter Property="Template" Value="{StaticResource RoundedButtonTemplate}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Margin" Value="5"/>
+                <Setter Property="Padding" Value="15,8"/>
+            </Style>
+            
             <!-- Триггер для анимаций -->
             <Style x:Key="AnimatedElement">
                 <Setter Property="Control.RenderTransformOrigin" Value="0.5,0.5"/>
@@ -41,31 +84,6 @@
                                                     EasingFunction="{StaticResource EaseOutBack}"/>
                                     <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                     From="0" To="1" Duration="0:0:0.2"/>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </DataTrigger.EnterActions>
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-            
-            <Style x:Key="ButtonAnimation" TargetType="Button" BasedOn="{StaticResource AnimatedElement}">
-                <Style.Triggers>
-                    <DataTrigger Binding="{StaticResource EnableAnimations}" Value="True">
-                        <Setter Property="Control.RenderTransformOrigin" Value="0.5,0.5"/>
-                        <Setter Property="Control.RenderTransform">
-                            <Setter.Value>
-                                <ScaleTransform ScaleX="1" ScaleY="1"/>
-                            </Setter.Value>
-                        </Setter>
-                        <DataTrigger.EnterActions>
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <DoubleAnimation Storyboard.TargetProperty="(Control.RenderTransform).(ScaleTransform.ScaleX)"
-                                                    From="0.95" To="1.0" Duration="0:0:0.2"
-                                                    EasingFunction="{StaticResource EaseOutBack}"/>
-                                    <DoubleAnimation Storyboard.TargetProperty="(Control.RenderTransform).(ScaleTransform.ScaleY)"
-                                                    From="0.95" To="1.0" Duration="0:0:0.2"
-                                                    EasingFunction="{StaticResource EaseOutBack}"/>
                                 </Storyboard>
                             </BeginStoryboard>
                         </DataTrigger.EnterActions>

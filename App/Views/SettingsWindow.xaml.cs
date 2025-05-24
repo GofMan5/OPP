@@ -363,9 +363,22 @@ namespace App.Views
         /// </summary>
         private async Task CheckForUpdatesAsync()
         {
+            // Проверяем, не выполняется ли уже проверка обновлений
+            if (_updateManager.IsCheckingForUpdates)
+            {
+                MessageBox.Show(
+                    "Проверка обновлений уже выполняется. Пожалуйста, подождите.",
+                    "Проверка обновлений",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+            
             // Показываем статус проверки
             UpdateStatusText.Text = "Проверка обновлений...";
             UpdateStatusText.Visibility = Visibility.Visible;
+            UpdateProgressBar.Visibility = Visibility.Visible;
+            UpdateProgressBar.IsIndeterminate = true;
             CheckUpdateButton.IsEnabled = false;
             
             try
@@ -378,18 +391,24 @@ namespace App.Views
                     // Загружаем список изменений
                     string changelog = await _updateManager.DownloadChangelogAsync();
                     
-                    // Устанавливаем статусный текст - используем правильное свойство AvailableUpdate.Version
-                    UpdateStatusText.Text = $"Доступно обновление {_updateManager.AvailableUpdate?.Version}";
-                    
-                    // Показываем кнопку установки
-                    InstallUpdateButton.Visibility = Visibility.Visible;
-                    InstallUpdateButton.IsEnabled = true;
+                    // Обновляем контейнер с информацией об обновлении
+                    ShowUpdateNotification();
                 }
                 else
                 {
                     // Обновлений нет
                     UpdateStatusText.Text = "У вас установлена последняя версия";
+                    UpdateProgressBar.Visibility = Visibility.Collapsed;
                     InstallUpdateButton.Visibility = Visibility.Collapsed;
+                    
+                    // Анимация для текста "последняя версия"
+                    var fadeAnimation = new DoubleAnimation
+                    {
+                        From = 0,
+                        To = 1,
+                        Duration = TimeSpan.FromSeconds(0.5)
+                    };
+                    UpdateStatusText.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
                 }
                 
                 // Обновляем время последней проверки
@@ -406,6 +425,173 @@ namespace App.Views
             finally
             {
                 CheckUpdateButton.IsEnabled = true;
+                UpdateProgressBar.IsIndeterminate = false;
+                UpdateProgressBar.Visibility = Visibility.Collapsed;
+            }
+        }
+        
+        /// <summary>
+        /// Отображает красивое уведомление об обновлении
+        /// </summary>
+        private void ShowUpdateNotification()
+        {
+            // Очищаем предыдущие элементы
+            UpdateStatusText.Visibility = Visibility.Collapsed;
+            UpdateProgressBar.Visibility = Visibility.Collapsed;
+            InstallUpdateButton.Visibility = Visibility.Collapsed;
+            
+            // Находим контейнер для обновления
+            var updateContainer = FindName("UpdateContainer") as Border;
+            
+            // Если контейнер уже существует, удаляем его
+            if (updateContainer != null)
+            {
+                var parent = VisualTreeHelper.GetParent(updateContainer) as Panel;
+                if (parent != null)
+                {
+                    parent.Children.Remove(updateContainer);
+                }
+            }
+            
+            // Создаем красивое уведомление
+            UIElement notification = _updateManager.CreateUpdateNotification();
+            
+            // Добавляем обработчики для кнопок в уведомлении
+            if (notification is Border border && border.Child is Panel panel)
+            {
+                foreach (UIElement element in panel.Children)
+                {
+                    if (element is Panel buttonPanel)
+                    {
+                        foreach (UIElement btnElement in buttonPanel.Children)
+                        {
+                            if (btnElement is Button button)
+                            {
+                                if (button.Content.ToString() == "Установить обновление")
+                                {
+                                    button.Click += async (s, e) => 
+                                    {
+                                        await DownloadAndInstallUpdate();
+                                    };
+                                }
+                                else if (button.Content.ToString() == "Позже")
+                                {
+                                    button.Click += (s, e) => 
+                                    {
+                                        // Скрываем уведомление с анимацией
+                                        var fadeOut = new DoubleAnimation
+                                        {
+                                            From = 1,
+                                            To = 0,
+                                            Duration = TimeSpan.FromSeconds(0.3)
+                                        };
+                                        
+                                        fadeOut.Completed += (sender, args) =>
+                                        {
+                                            var parent = VisualTreeHelper.GetParent(border) as Panel;
+                                            if (parent != null)
+                                            {
+                                                parent.Children.Remove(border);
+                                            }
+                                        };
+                                        
+                                        border.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Находим родительский контейнер
+            var updatesPanel = FindName("UpdatesPanel") as Grid;
+            var scrollViewer = updatesPanel?.Children[0] as ScrollViewer;
+            var stackPanel = scrollViewer?.Content as StackPanel;
+            
+            if (stackPanel != null)
+            {
+                // Создаем и добавляем Border в качестве контейнера
+                Border container = new Border
+                {
+                    Name = "UpdateContainer",
+                    Margin = new Thickness(0, 15, 0, 0)
+                };
+                
+                container.Child = notification;
+                
+                // Добавляем после второго Border
+                if (stackPanel.Children.Count >= 2 && stackPanel.Children[1] is Border)
+                {
+                    stackPanel.Children.Insert(2, container);
+                }
+                else
+                {
+                    stackPanel.Children.Add(container);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Загружает и устанавливает обновление
+        /// </summary>
+        private async Task DownloadAndInstallUpdate()
+        {
+            // Показываем индикатор загрузки
+            UpdateStatusText.Text = "Загрузка обновления...";
+            UpdateStatusText.Visibility = Visibility.Visible;
+            UpdateProgressBar.Visibility = Visibility.Visible;
+            UpdateProgressBar.IsIndeterminate = false;
+            UpdateProgressBar.Value = 0;
+            
+            // Находим и скрываем контейнер с уведомлением
+            var updateContainer = FindName("UpdateContainer") as Border;
+            if (updateContainer != null)
+            {
+                updateContainer.Visibility = Visibility.Collapsed;
+            }
+            
+            CheckUpdateButton.IsEnabled = false;
+            
+            try
+            {
+                // Загружаем обновление
+                bool downloadSuccess = await _updateManager.DownloadUpdateAsync();
+                
+                if (downloadSuccess)
+                {
+                    UpdateStatusText.Text = "Установка обновления...";
+                    
+                    // Небольшая задержка для отображения сообщения
+                    await Task.Delay(1000);
+                    
+                    // Устанавливаем обновление
+                    _updateManager.InstallUpdate();
+                    // Примечание: если метод InstallUpdate выполнен успешно, приложение будет перезапущено
+                }
+                else
+                {
+                    UpdateStatusText.Text = "Ошибка загрузки обновления!";
+                    
+                    if (updateContainer != null)
+                    {
+                        updateContainer.Visibility = Visibility.Visible;
+                    }
+                    
+                    CheckUpdateButton.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatusText.Text = $"Ошибка: {ex.Message}";
+                Debug.WriteLine($"Ошибка при загрузке обновления: {ex}");
+                
+                if (updateContainer != null)
+                {
+                    updateContainer.Visibility = Visibility.Visible;
+                }
+                
+                CheckUpdateButton.IsEnabled = true;
             }
         }
         
@@ -414,30 +600,7 @@ namespace App.Views
         /// </summary>
         private async void InstallUpdateButton_Click(object sender, RoutedEventArgs e)
         {
-            // Показываем индикатор загрузки
-            UpdateStatusText.Text = "Загрузка обновления...";
-            UpdateStatusText.Visibility = Visibility.Visible;
-            UpdateProgressBar.Visibility = Visibility.Visible;
-            InstallUpdateButton.IsEnabled = false;
-            CheckUpdateButton.IsEnabled = false;
-            
-            // Загружаем обновление
-            bool downloadSuccess = await _updateManager.DownloadUpdateAsync();
-            
-            if (downloadSuccess)
-            {
-                UpdateStatusText.Text = "Установка обновления...";
-                
-                // Устанавливаем обновление
-                _updateManager.InstallUpdate();
-                // Примечание: если метод InstallUpdate выполнен успешно, приложение будет перезапущено
-            }
-            else
-            {
-                UpdateStatusText.Text = "Ошибка загрузки обновления!";
-                InstallUpdateButton.IsEnabled = true;
-                CheckUpdateButton.IsEnabled = true;
-            }
+            await DownloadAndInstallUpdate();
         }
         
         /// <summary>

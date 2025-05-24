@@ -13,6 +13,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace App
 {
@@ -201,6 +203,13 @@ namespace App
             {
                 System.Diagnostics.Debug.WriteLine($"Начинаем проверку обновлений... Текущая версия: {_appVersion}");
                 
+                // Проверяем, не запущена ли уже проверка обновлений
+                if (_updateManager.IsCheckingForUpdates)
+                {
+                    System.Diagnostics.Debug.WriteLine("Проверка обновлений уже выполняется. Пропускаем.");
+                    return;
+                }
+                
                 bool updateAvailable = await _updateManager.CheckForUpdatesAsync();
                 
                 // Если найдено обновление, показываем диалог
@@ -224,144 +233,442 @@ namespace App
         /// </summary>
         private void ShowUpdateDialog(string version, string changelog)
         {
-            var result = MessageBox.Show(
-                $"Доступна новая версия {version}!\n\nОбновить сейчас?", 
-                "Обновление доступно", 
-                MessageBoxButton.YesNo, 
-                MessageBoxImage.Information);
-                
-            if (result == MessageBoxResult.Yes)
+            // Создаем красивое модальное окно для обновления
+            Window updateWindow = new Window
             {
-                // Создаем простое окно прогресса
-                Window progressWindow = new Window
+                Title = "Доступно обновление",
+                Width = 500,
+                Height = 380,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent,
+                Topmost = true
+            };
+            
+            // Создаем главный контейнер с тенью
+            Border mainBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E2B37")),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Margin = new Thickness(10)
+            };
+            
+            // Добавляем эффект тени
+            mainBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black,
+                Direction = 270,
+                ShadowDepth = 5,
+                BlurRadius = 10,
+                Opacity = 0.5
+            };
+            
+            // Создаем основной Grid
+            Grid mainGrid = new Grid();
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) }); // Заголовок
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Содержимое
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(60) }); // Кнопки
+            
+            // Заголовок с возможностью перетаскивания
+            Border headerBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                CornerRadius = new CornerRadius(10, 10, 0, 0)
+            };
+            
+            Grid headerGrid = new Grid();
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            
+            TextBlock titleText = new TextBlock
+            {
+                Text = "Доступно обновление",
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(15, 0, 0, 0)
+            };
+            
+            Button closeButton = new Button
+            {
+                Content = "✕",
+                Foreground = Brushes.White,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Width = 40,
+                Height = 40,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            
+            closeButton.Click += (s, e) => updateWindow.Close();
+            
+            Grid.SetColumn(titleText, 0);
+            Grid.SetColumn(closeButton, 1);
+            
+            headerGrid.Children.Add(titleText);
+            headerGrid.Children.Add(closeButton);
+            headerBorder.Child = headerGrid;
+            Grid.SetRow(headerBorder, 0);
+            
+            // Добавляем возможность перетаскивания окна
+            headerBorder.MouseLeftButtonDown += (s, e) => 
+            {
+                updateWindow.DragMove();
+            };
+            
+            // Содержимое
+            ScrollViewer contentScroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Margin = new Thickness(20)
+            };
+            
+            StackPanel contentPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 10, 0)
+            };
+            
+            // Иконка обновления
+            System.Windows.Shapes.Path updateIcon = new System.Windows.Shapes.Path
+            {
+                Data = Geometry.Parse("M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"),
+                Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                Width = 40,
+                Height = 40,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+            
+            // Информация о новой версии
+            TextBlock versionText = new TextBlock
+            {
+                Text = $"Новая версия {version}",
+                FontSize = 18,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+            
+            // Добавляем анимацию для заголовка
+            ScaleTransform scaleTransform = new ScaleTransform(1, 1);
+            versionText.RenderTransform = scaleTransform;
+            versionText.RenderTransformOrigin = new Point(0.5, 0.5);
+            
+            DoubleAnimation pulseAnimation = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 1.05,
+                Duration = TimeSpan.FromSeconds(1.5),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, pulseAnimation);
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, pulseAnimation);
+            
+            // Сообщение об обновлении
+            TextBlock messageText = new TextBlock
+            {
+                Text = _updateManager.AvailableUpdate?.UpdateMessages?.Ru ?? "Рекомендуется установить для улучшения функциональности и стабильности.",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.White,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 20)
+            };
+            
+            // Раздел "Что нового"
+            TextBlock whatNewTitle = new TextBlock
+            {
+                Text = "Что нового:",
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            
+            TextBlock changelogText = new TextBlock
+            {
+                Text = changelog,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.LightGray,
+                Margin = new Thickness(10, 0, 0, 15)
+            };
+            
+            // Размер обновления
+            TextBlock sizeText = null;
+            if (_updateManager.AvailableUpdate?.FileSize > 0)
+            {
+                double sizeInMb = Math.Round(_updateManager.AvailableUpdate.FileSize / 1024.0 / 1024.0, 2);
+                sizeText = new TextBlock
                 {
-                    Title = "Загрузка обновления",
-                    Width = 400,
-                    Height = 150,
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    ResizeMode = ResizeMode.NoResize,
-                    WindowStyle = WindowStyle.ToolWindow,
-                    Topmost = true
+                    Text = $"Размер: {sizeInMb} МБ",
+                    Foreground = Brushes.LightGray,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 0, 0, 5)
                 };
+            }
+            
+            // Добавляем элементы в контейнер содержимого
+            contentPanel.Children.Add(updateIcon);
+            contentPanel.Children.Add(versionText);
+            contentPanel.Children.Add(messageText);
+            contentPanel.Children.Add(whatNewTitle);
+            contentPanel.Children.Add(changelogText);
+            
+            if (sizeText != null)
+                contentPanel.Children.Add(sizeText);
                 
-                Grid grid = new Grid { Margin = new Thickness(20) };
-                grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-                grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(10) });
-                grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-                
-                TextBlock statusText = new TextBlock 
-                { 
-                    Text = "Загрузка обновления...", 
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 0, 0, 10)
-                };
-                Grid.SetRow(statusText, 0);
-                
-                ProgressBar progressBar = new ProgressBar 
-                { 
-                    Width = 350, 
-                    Height = 20, 
-                    IsIndeterminate = true 
-                };
-                Grid.SetRow(progressBar, 2);
-                
-                grid.Children.Add(statusText);
-                grid.Children.Add(progressBar);
-                progressWindow.Content = grid;
-                
-                // Показываем окно
-                progressWindow.Show();
-                
-                // Запускаем процесс обновления
-                Dispatcher.BeginInvoke(new Action(async () => 
+            contentScroll.Content = contentPanel;
+            Grid.SetRow(contentScroll, 1);
+            
+            // Панель с кнопками
+            Grid buttonGrid = new Grid
+            {
+                Margin = new Thickness(20, 0, 20, 15)
+            };
+            
+            buttonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            buttonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            buttonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            
+            Button installButton = new Button
+            {
+                Content = "Установить сейчас",
+                Padding = new Thickness(20, 10, 20, 10),
+                Margin = new Thickness(0, 0, 10, 0),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0)
+            };
+            
+            // Стиль для кнопки
+            installButton.Style = new Style(typeof(Button));
+            installButton.Style.Setters.Add(new Setter(Button.TemplateProperty, 
+                Application.Current.Resources["RoundedButtonTemplate"] as ControlTemplate ?? 
+                Application.Current.Resources["ButtonTemplate"] as ControlTemplate));
+            
+            // Обработчик для кнопки установки
+            installButton.Click += async (s, e) => 
+            {
+                updateWindow.Close();
+                await DownloadAndInstallUpdateAsync();
+            };
+            
+            Button laterButton = new Button
+            {
+                Content = "Позже",
+                Padding = new Thickness(20, 10, 20, 10),
+                Background = Brushes.Transparent,
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB"))
+            };
+            
+            // Стиль для кнопки
+            laterButton.Style = new Style(typeof(Button));
+            laterButton.Style.Setters.Add(new Setter(Button.TemplateProperty, 
+                Application.Current.Resources["RoundedButtonTemplate"] as ControlTemplate ?? 
+                Application.Current.Resources["ButtonTemplate"] as ControlTemplate));
+            
+            // Обработчик для кнопки "Позже"
+            laterButton.Click += (s, e) => updateWindow.Close();
+            
+            Grid.SetColumn(installButton, 1);
+            Grid.SetColumn(laterButton, 2);
+            
+            buttonGrid.Children.Add(installButton);
+            buttonGrid.Children.Add(laterButton);
+            Grid.SetRow(buttonGrid, 2);
+            
+            // Добавляем все элементы в основной Grid
+            mainGrid.Children.Add(headerBorder);
+            mainGrid.Children.Add(contentScroll);
+            mainGrid.Children.Add(buttonGrid);
+            
+            mainBorder.Child = mainGrid;
+            updateWindow.Content = mainBorder;
+            
+            // Анимация появления окна
+            updateWindow.Opacity = 0;
+            
+            DoubleAnimation fadeIn = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromSeconds(0.3)
+            };
+            
+            updateWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            
+            // Показываем окно
+            updateWindow.ShowDialog();
+        }
+        
+        /// <summary>
+        /// Загружает и устанавливает обновление
+        /// </summary>
+        private async Task DownloadAndInstallUpdateAsync()
+        {
+            // Создаем окно с прогрессом загрузки
+            Window progressWindow = new Window
+            {
+                Title = "Загрузка обновления",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent,
+                Topmost = true
+            };
+            
+            // Создаем главный контейнер с тенью
+            Border mainBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E2B37")),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB")),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10)
+            };
+            
+            // Добавляем эффект тени
+            mainBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black,
+                Direction = 270,
+                ShadowDepth = 5,
+                BlurRadius = 10,
+                Opacity = 0.5
+            };
+            
+            Grid grid = new Grid { Margin = new Thickness(20) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(10) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+            
+            TextBlock statusText = new TextBlock 
+            { 
+                Text = "Загрузка обновления...", 
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Foreground = Brushes.White,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            Grid.SetRow(statusText, 0);
+            
+            ProgressBar progressBar = new ProgressBar 
+            { 
+                Width = 350, 
+                Height = 10, 
+                IsIndeterminate = false,
+                Minimum = 0,
+                Maximum = 100,
+                Value = 0,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2A3F55")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3498DB"))
+            };
+            Grid.SetRow(progressBar, 2);
+            
+            grid.Children.Add(statusText);
+            grid.Children.Add(progressBar);
+            mainBorder.Child = grid;
+            progressWindow.Content = mainBorder;
+            
+            // Анимация появления окна
+            progressWindow.Opacity = 0;
+            
+            DoubleAnimation fadeIn = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromSeconds(0.3)
+            };
+            
+            progressWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            
+            // Показываем окно
+            progressWindow.Show();
+            
+            // Запускаем процесс обновления
+            Dispatcher.BeginInvoke(new Action(async () => 
+            {
+                try
                 {
-                    try
+                    // Подписываемся на события обновления прогресса
+                    _updateManager.DownloadProgressChanged += (s, p) => {
+                        Dispatcher.Invoke(() => {
+                            progressBar.Value = p;
+                            statusText.Text = $"Загрузка обновления... {p}%";
+                        });
+                    };
+                    
+                    // Загружаем обновление
+                    bool downloadSuccess = await _updateManager.DownloadUpdateAsync();
+                    
+                    if (downloadSuccess)
                     {
-                        // Отключаем неопределенный прогресс и подписываемся на события обновления прогресса
-                        progressBar.IsIndeterminate = false;
-                        progressBar.Minimum = 0;
-                        progressBar.Maximum = 100;
-                        progressBar.Value = 0;
+                        statusText.Text = "Установка обновления...";
                         
-                        _updateManager.DownloadProgressChanged += (s, p) => {
-                            Dispatcher.Invoke(() => {
-                                progressBar.Value = p;
-                                statusText.Text = $"Загрузка обновления... {p}%";
-                            });
-                        };
+                        // Небольшая задержка для визуального отображения
+                        await Task.Delay(1000);
                         
-                        // Загружаем обновление
-                        bool downloadSuccess = await _updateManager.DownloadUpdateAsync();
+                        // Закрываем окно прогресса перед установкой
+                        progressWindow.Close();
                         
-                        if (downloadSuccess)
+                        // Устанавливаем обновление
+                        if (!_updateManager.InstallUpdate())
                         {
-                            statusText.Text = "Установка обновления...";
-                            
-                            // Небольшая задержка для визуального отображения
-                            await Task.Delay(1000);
-                            
-                            // Закрываем окно прогресса перед установкой
-                            progressWindow.Close();
-                            
-                            // Устанавливаем обновление
-                            if (!_updateManager.InstallUpdate())
-                            {
-                                // Если установка не удалась
-                                MessageBox.Show("Произошла ошибка при установке обновления.", 
-                                    "Ошибка обновления", 
-                                    MessageBoxButton.OK, 
-                                    MessageBoxImage.Error);
-                                
-                                // Проверяем, существует ли файл с логами ошибок
-                                string errorLogPath = Path.Combine(Path.GetTempPath(), "update_error.log");
-                                if (File.Exists(errorLogPath))
-                                {
-                                    try
-                                    {
-                                        string errorContent = File.ReadAllText(errorLogPath);
-                                        System.Diagnostics.Debug.WriteLine($"Содержимое лога ошибок: {errorContent}");
-                                        
-                                        MessageBox.Show($"Детали ошибки:\n{errorContent}", 
-                                            "Подробности ошибки обновления", 
-                                            MessageBoxButton.OK, 
-                                            MessageBoxImage.Information);
-                                            
-                                        // Удаляем лог после прочтения
-                                        File.Delete(errorLogPath);
-                                    }
-                                    catch (Exception logEx)
-                                    {
-                                        System.Diagnostics.Debug.WriteLine($"Ошибка при чтении лога: {logEx.Message}");
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Закрываем окно прогресса
-                            progressWindow.Close();
-                            
-                            MessageBox.Show("Не удалось загрузить обновление. Попробуйте позже.", 
+                            // Если установка не удалась
+                            MessageBox.Show("Произошла ошибка при установке обновления.", 
                                 "Ошибка обновления", 
                                 MessageBoxButton.OK, 
                                 MessageBoxImage.Error);
+                            
+                            // Проверяем, существует ли файл с логами ошибок
+                            string errorLogPath = Path.Combine(Path.GetTempPath(), "update_error.log");
+                            if (File.Exists(errorLogPath))
+                            {
+                                // Показываем содержимое лог-файла
+                                string errorLog = File.ReadAllText(errorLogPath);
+                                MessageBox.Show($"Содержимое лога ошибок:\n\n{errorLog}", 
+                                    "Детали ошибки обновления", 
+                                    MessageBoxButton.OK, 
+                                    MessageBoxImage.Information);
+                            }
                         }
                     }
-                    catch (Exception ex)
+                    else
                     {
                         // Закрываем окно прогресса в случае ошибки
                         progressWindow.Close();
                         
-                        MessageBox.Show($"Произошла ошибка при обновлении: {ex.Message}", 
-                            "Ошибка обновления", 
+                        MessageBox.Show("Не удалось загрузить обновление. Пожалуйста, попробуйте позже.", 
+                            "Ошибка загрузки", 
                             MessageBoxButton.OK, 
                             MessageBoxImage.Error);
-                            
-                        System.Diagnostics.Debug.WriteLine($"Ошибка в ShowUpdateDialog: {ex.Message}");
-                        System.Diagnostics.Debug.WriteLine($"Стек: {ex.StackTrace}");
                     }
-                }));
-            }
+                }
+                catch (Exception ex)
+                {
+                    // Закрываем окно прогресса в случае ошибки
+                    progressWindow.Close();
+                    
+                    MessageBox.Show($"Произошла ошибка при обновлении: {ex.Message}", 
+                        "Ошибка обновления", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Error);
+                        
+                    System.Diagnostics.Debug.WriteLine($"Ошибка в ShowUpdateDialog: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Стек: {ex.StackTrace}");
+                }
+            }));
         }
         
         /// <summary>
