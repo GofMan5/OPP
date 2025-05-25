@@ -1,13 +1,21 @@
 {
-  "Version": "1.1.0",
-  "ReleaseDate": "2025-05-25",
-  "Mandatory": false,
-  "DownloadUrl": "https://github.com/GofMan5/OPP/releases/download/v1.1.0/OPP_Setup_1.1.0.exe",
-  "ChangelogUrl": "https://raw.githubusercontent.com/GofMan5/OPP/main/changelog.txt",
-  "MinOSVersion": "10.0",
-  "FileSize": 2621440,
-  "UpdateMessages": {
-    "Ru": "Доступно обновление до версии 1.1.0.",
-    "En": "Update to version 1.1.0 is available."
+  "version": "1.1.2",
+  "minimumRequiredVersion": "1.0.0",
+  "isMandatory": false,
+  "channel": "Stable",
+  "packageUrl": "https://github.com/GofMan5/OPP/releases/download/v1.1.2/OPP_Setup_1.1.2.exe",
+  "signatureUrl": "",
+  "packageSize": 5242880,
+  "hash": "",
+  "hashAlgorithm": "SHA256",
+  "releaseNotes": "Обновление системы автоматических обновлений. В этой версии:\n- Полностью переработанная система обновлений\n- Улучшена стабильность работы приложения\n- Исправлены ошибки в предыдущих версиях",
+  "releaseDate": "2025-05-25T12:00:00Z",
+  "localizedMessages": {
+    "ru": "Доступно важное обновление до версии 1.1.2. Рекомендуем установить его для улучшения стабильности и безопасности программы."
+  },
+  "metadata": {
+    "forceCheck": "false",
+    "requiredRestart": "true",
+    "changelogUrl": "https://github.com/GofMan5/OPP/releases/tag/v1.1.2"
   }
 } 
